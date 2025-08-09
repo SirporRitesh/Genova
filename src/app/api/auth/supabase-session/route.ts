@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0/edge';
-import { createClient } from '@supabase/supabase-js';
-// import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabaseServer/supabaseServer-js';
+// import { supabaseServer } from '@/lib/supabaseClient';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+const supabaseServer = createClient(
+  process.env.NEXT_PUBLIC_supabaseServer_URL!,
+  process.env.supabaseServer_SERVICE_ROLE_KEY!,
   {
     auth: {
       autoRefreshToken: false,
@@ -27,14 +27,14 @@ export async function GET(req: Request) {
       }, { status: 401 });
     }
 
-    // Exchange Auth0 token for Supabase session
-    const { data, error } = await supabase.auth.signInWithIdToken({
+    // Exchange Auth0 token for supabaseServer session
+    const { data, error } = await supabaseServer.auth.signInWithIdToken({
       provider: 'auth0',
       token: session.idToken,
     });
 
     if (error) {
-      console.error('Supabase sign-in error:', error);
+      console.error('supabaseServer sign-in error:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 

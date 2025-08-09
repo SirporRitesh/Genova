@@ -1,7 +1,7 @@
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 - [x] Verify that the copilot-instructions.md file in the .github directory is created.
 
-- [x] Clarify Project Requirements - Mobile ChatGPT clone with Next.js App Router, Bootstrap, tRPC, Auth0, Supabase, Google Gemini APIs
+- [x] Clarify Project Requirements - Mobile ChatGPT clone with Next.js App Router, Bootstrap, tRPC, Auth0, supabaseServer, Google Gemini APIs
 
 - [x] Scaffold the Project - Next.js with App Router, TypeScript, ESLint completed
 
@@ -30,6 +30,6 @@
 - Step 2: Set up Auth0 authentication
 - Step 3: Integrate tRPC with TanStack + Server Components  
 - Step 4: Connect Google Gemini APIs (text + image model)
-- Step 5: Store chats per user in Supabase
+- Step 5: Store chats per user in supabaseServer
 - Step 6: Deploy to Vercel
 - Step 7: Write basic tests using Jest

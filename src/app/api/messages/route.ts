@@ -1,12 +1,12 @@
 // app/api/messages/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabaseServer/supabaseServer-js';
 import { getSession } from '@auth0/nextjs-auth0/edge';
 
-// Server-side Supabase client (use service role key only on server)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+// Server-side supabaseServer client (use service role key only on server)
+const supabaseServerAdmin = createClient(
+  process.env.NEXT_PUBLIC_supabaseServer_URL!, 
+  process.env.supabaseServer_SERVICE_ROLE_KEY!
 );
 
 // GET: Fetch messages for authenticated user
@@ -22,14 +22,14 @@ export async function GET(request: Request) {
 
     const userId = session.user.sub;
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseServerAdmin
       .from('messages')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Supabase GET error:', error);
+      console.error('supabaseServer GET error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Either text or image_url is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseServerAdmin
       .from('messages')
       .insert([{
         role,
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error('Supabase INSERT error:', error);
+      console.error('supabaseServer INSERT error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

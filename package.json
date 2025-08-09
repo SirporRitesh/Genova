@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^2.7.0",
-    "@supabase/supabase-js": "^2.54.0",
+    "@supabaseServer/supabaseServer-js": "^2.54.0",
     "bootstrap": "^5.3.7",
     "next": "15.4.6",
     "react": "19.1.0",

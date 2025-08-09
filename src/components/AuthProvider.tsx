@@ -2,66 +2,66 @@
 
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseServer } from '@/lib/supabaseClient';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isLoading } = useUser();
-  const [supabaseReady, setSupabaseReady] = useState(false);
+  const [supabaseServerReady, setsupabaseServerReady] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     async function syncAuth() {
       if (!user) {
-        setSupabaseReady(true);
+        setsupabaseServerReady(true);
         return;
       }
 
       try {
-        console.log("Attempting to sync Auth0 with Supabase...");
+        console.log("Attempting to sync Auth0 with supabaseServer...");
         
-        // Try to get current Supabase session first
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        // Try to get current supabaseServer session first
+        const { data: { session: existingSession } } = await supabaseServer.auth.getSession();
         
         if (existingSession) {
-          console.log("Existing Supabase session found");
-          setSupabaseReady(true);
+          console.log("Existing supabaseServer session found");
+          setsupabaseServerReady(true);
           return;
         }
         
         // Call our API route to exchange tokens
-        const res = await fetch('/api/auth/supabase-session');
+        const res = await fetch('/api/auth/supabaseServer-session');
         const data = await res.json();
         
         if (!res.ok) {
-          console.error("Supabase sync error:", data);
-          setSyncError(data.error || "Failed to sync with Supabase");
-          setSupabaseReady(true); // Still continue even with error
+          console.error("supabaseServer sync error:", data);
+          setSyncError(data.error || "Failed to sync with supabaseServer");
+          setsupabaseServerReady(true); // Still continue even with error
           return;
         }
         
-        console.log("Auth0-Supabase sync successful");
+        console.log("Auth0-supabaseServer sync successful");
         
-        // Check if Supabase recognizes the user
-        const { data: userData } = await supabase.auth.getUser();
-        console.log('Supabase user after sync:', userData.user);
+        // Check if supabaseServer recognizes the user
+        const { data: userData } = await supabaseServer.auth.getUser();
+        console.log('supabaseServer user after sync:', userData.user);
         
-        setSupabaseReady(true);
+        setsupabaseServerReady(true);
       } catch (error) {
         console.error('Auth sync error:', error);
         setSyncError(String(error));
-        setSupabaseReady(true); // Still render app, just without Supabase auth
+        setsupabaseServerReady(true); // Still render app, just without supabaseServer auth
       }
     }
 
     if (user && !isLoading) {
       syncAuth();
     } else if (!isLoading) {
-      setSupabaseReady(true);
+      setsupabaseServerReady(true);
     }
   }, [user, isLoading]);
 
   // Show loading state while we sync auth
-  if (isLoading || !supabaseReady) {
+  if (isLoading || !supabaseServerReady) {
     return <div className="d-flex justify-content-center pt-5">Loading authentication...</div>;
   }
 

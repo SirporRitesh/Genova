@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabaseServer/supabaseServer-js'
 
-export const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // Add this to your .env.local
+export const supabaseServerServer = createClient(
+  process.env.NEXT_PUBLIC_supabaseServer_URL!,
+  process.env.NEXT_PUBLIC_supabaseServer_ANON_KEY!, // Add this to your .env.local
   {
     auth: {
       autoRefreshToken: false,

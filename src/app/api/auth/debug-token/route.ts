@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0/edge';
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const res = new Response();
+   const res = NextResponse.next();
     const session = await getSession(req, res);
     
     if (!session) {

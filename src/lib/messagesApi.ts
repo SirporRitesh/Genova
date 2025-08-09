@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabaseServer } from './supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
 // Temporary local storage key for development
@@ -7,15 +7,15 @@ console.log('Using local storage key:', LOCAL_MESSAGES_KEY);
 export async function fetchMessages() {
   try {
     // First try to get authenticated session
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseServer.auth.getSession();
 
     console.log('Current session:', session);
     // Renamed file to messageAPI.ts
 
     if (session) {
-      // If authenticated, fetch from Supabase
+      // If authenticated, fetch from supabaseServer
       const userId = session.user.id;
-      const { data, error } = await supabase
+      const { data, error } = await supabaseServer
         .from('messages')
         .select('*')
         .eq('user_id', userId)
@@ -26,7 +26,7 @@ export async function fetchMessages() {
     } else {
       
       // Fallback to local storage when not authenticated
-      console.log('No Supabase session, using local storage fallback');
+      console.log('No supabaseServer session, using local storage fallback');
       const storedMessages = localStorage.getItem(LOCAL_MESSAGES_KEY);
       return storedMessages ? JSON.parse(storedMessages) : [];
     }
@@ -41,7 +41,7 @@ export async function fetchMessages() {
 export async function saveMessage(role: 'user' | 'assistant', text: string, image_url?: string) {
   try {
     // Try to get authenticated session
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseServer.auth.getSession();
 
     console.log('Attempting to save message:', { role, text, image_url });
     console.log('Current session:', session);
@@ -55,10 +55,10 @@ export async function saveMessage(role: 'user' | 'assistant', text: string, imag
     };
     
     if (session) {
-      console.log('Authenticated session found, saving to Supabase...', session);
-      // If authenticated, save to Supabase
+      console.log('Authenticated session found, saving to supabaseServer...', session);
+      // If authenticated, save to supabaseServer
       const userId = session.user.id;
-      const { data, error } = await supabase
+      const { data, error } = await supabaseServer
         .from('messages')
         .insert([{
           ...newMessage,
@@ -72,7 +72,7 @@ export async function saveMessage(role: 'user' | 'assistant', text: string, imag
     } else {
       // Fallback to local storage when not authenticated
       console.log("1222222qqqqqq")
-      console.log('No Supabase session, using local storage fallback');
+      console.log('No supabaseServer session, using local storage fallback');
       const storedMessages = localStorage.getItem(LOCAL_MESSAGES_KEY);
       const messages = storedMessages ? JSON.parse(storedMessages) : [];
       
