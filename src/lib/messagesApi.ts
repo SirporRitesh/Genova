@@ -3,14 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Temporary local storage key for development
 const LOCAL_MESSAGES_KEY = 'chatgpt_clone_messages';
-
+console.log('Using local storage key:', LOCAL_MESSAGES_KEY);
 export async function fetchMessages() {
   try {
     // First try to get authenticated session
     const { data: { session } } = await supabase.auth.getSession();
 
     console.log('Current session:', session);
-    
+    // Renamed file to messageAPI.ts
+
     if (session) {
       // If authenticated, fetch from Supabase
       const userId = session.user.id;
@@ -23,7 +24,7 @@ export async function fetchMessages() {
       if (error) throw new Error(error.message);
       return data || [];
     } else {
-      console.log("1222221")
+      
       // Fallback to local storage when not authenticated
       console.log('No Supabase session, using local storage fallback');
       const storedMessages = localStorage.getItem(LOCAL_MESSAGES_KEY);
