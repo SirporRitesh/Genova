@@ -4,6 +4,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import BootstrapClient from "../components/BootstrapClient";
 import AuthWrapper from "./components/AuthWrapper";
+import { UserProvider } from "@auth0/nextjs-auth0/client";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,9 +29,13 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <AuthWrapper>
-          {children}
-        </AuthWrapper>
+        <UserProvider>
+          {/* <AuthProvider>
+            <AuthWrapper> */}
+              {children}
+            {/* </AuthWrapper>
+          </AuthProvider> */}
+        </UserProvider>
         <BootstrapClient />
       </body>
     </html>

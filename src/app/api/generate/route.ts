@@ -1,61 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@auth0/nextjs-auth0';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Check user authentication
-    const session = await getSession(request, new NextResponse());
-
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized - Please login first' }, { status: 401 });
-    }
-
-    const user = session.user;
-    console.log(`Image generation request from user: ${user.email || user.sub}`);
-
     const { prompt } = await request.json();
-
+    
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
-
-    // Rate limiting per user (optional enhancement)
-    console.log(`Generating image for user ${user.sub}: "${prompt}"`);
-
-    const hfResponse = await fetch(
+    
+    // Call Hugging Face Stable Diffusion
+    const response = await fetch(
       "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${process.env.HF_API_KEY}`,
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.HF_API_KEY || ""}`,
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          inputs: prompt
-        }),
+        body: JSON.stringify({ inputs: prompt }),
       }
     );
-
-    if (!hfResponse.ok) {
-      const error = await hfResponse.text();
-      console.error(`HF API Error for user ${user.sub}:`, error);
-      throw new Error(`Failed to generate image: ${error}`);
-    }
-
-    const buffer = await hfResponse.arrayBuffer();
     
-    return new NextResponse(Buffer.from(buffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'image/jpeg',
-        'Cache-Control': 'no-cache',
-      },
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Hugging Face API error:', errorText);
+      return NextResponse.json({ error: 'Image generation error' }, { status: 500 });
+    }
+    
+    // Return image binary data directly
+    const imageBuffer = await response.arrayBuffer();
+    return new Response(imageBuffer, {
+      headers: { "Content-Type": "image/jpeg" }
     });
   } catch (error) {
-    console.error('Error generating image:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate image. The model might be loading, please try again.' },
-      { status: 500 }
-    );
+    console.error('Error in image generation API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

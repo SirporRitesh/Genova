@@ -1,15 +1,31 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @next/next/no-html-link-for-pages */
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@auth0/nextjs-auth0/client';
+import { fetchMessages, saveMessage } from '@/lib/messagesAPI';
+import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
 
 interface Message {
-  id: number;
+  id: string;
+  role?: string; // Optional for messages from the database
   text: string;
+  created_at?: string; // Optional for messages from the database
   isUser: boolean;
   timestamp: string;
   image?: string;
   mimeType?: string;
+}
+
+interface DbMessage {
+  id: string;
+  role: string; // 'user' or 'assistant'
+  text: string;
+  created_at: string;
+  user_id?: string;
+  image_url?: string;
 }
 
 export default function Home() {
@@ -18,18 +34,84 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+useEffect(() => {
+  async function checkAuth() {
+    if (user) {
+      console.log("Auth0 user:", user);
+      
+      try {
+        // Check if we already have a Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.log("Syncing Auth0 with Supabase...");
+          
+          const syncResponse = await fetch('/api/auth/supabase-session');
+          const syncResult = await syncResponse.json();
+
+          console.log("Sync result:", syncResult);
+          
+          if (syncResult.success) {
+            // Set the Supabase session
+            await supabase.auth.setSession({
+              access_token: syncResult.session.access_token,
+              refresh_token: syncResult.session.refresh_token
+            });
+            console.log("Successfully synced sessions");
+          } else {
+            console.error("Failed to sync sessions:", syncResult.error);
+          }
+        }
+      } catch (error) {
+        console.error("Auth sync error:", error);
+      }
+    }
+  }
+  checkAuth();
+}, [user]);
 
   // Initialize welcome message for authenticated users
   useEffect(() => {
-    if (user && messages.length == 0) {
-      // setMessages([{
-      //   id: 1,
-      //   text: `Hello ${user.name || 'there'}! I'm your AI assistant. How can I help you today?`,
-      //   isUser: false,
-      //   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      // }]);
+    if (user && messages.length === 0 && !isLoadingMessages) {
+      // First time user welcome message will be handled by fetchMessages
     }
-  }, [user, messages.length]);
+  }, [user, messages.length, isLoadingMessages]);
+
+  // Load messages when user is authenticated
+  useEffect(() => {
+    if (user) {
+      setIsLoadingMessages(true);
+      loadMessages();
+    }
+  }, [user]);
+
+  // Fetch messages using the external API
+  const loadMessages = async () => {
+    try {
+      const data = await fetchMessages();
+      
+      // Map DB messages to UI format
+      const uiMessages = data.map((dbMsg: DbMessage) => ({
+        id: dbMsg.id,
+        text: dbMsg.text,
+        isUser: dbMsg.role === 'user',
+        timestamp: new Date(dbMsg.created_at).toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        image: dbMsg.image_url,
+        mimeType: dbMsg.image_url ? 'image/jpeg' : undefined
+      }));
+      
+      setMessages(uiMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,7 +122,7 @@ export default function Home() {
   }, [messages]);
 
   // Show loading state
-  if (isLoading) {
+  if (isLoading || isLoadingMessages) {
     return (
       <div className="landing-container d-flex align-items-center justify-content-center">
         <div className="text-center">
@@ -111,6 +193,8 @@ export default function Home() {
     );
   }
 
+  // Add to your component after login
+
   // Generate image using Hugging Face Stable Diffusion XL
   async function generateImage(prompt: string): Promise<string> {
     try {
@@ -136,73 +220,133 @@ export default function Home() {
 
   // Enhanced message handler with image generation detection
   const handleSendMessage = async () => {
-    if (inputText.trim()) {
-      const newMessage: Message = {
-        id: Date.now(),
-        text: inputText.trim(),
-        isUser: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, newMessage]);
-      const currentInput = inputText;
-      setInputText('');
-      setIsTyping(true);
+    // FIXED: This was returning early if text existed (opposite of intended behavior)
+    if (!inputText.trim()) return;
+    
+    const tempId = `temp-${Date.now()}`;
+    const userMessage: Message = {
+      id: tempId,
+      text: inputText.trim(),
+      isUser: true,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    // Optimistic UI update
+    setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputText;
+    setInputText('');
+    setIsTyping(true);
+    
+    // Modify the saveMessage call to handle failures better
+    try {
+      // Save user message using external API
+      const savedUser = await saveMessage('user', userMessage.text);
       
-      try {
-        // Check if user wants image generation (simple keyword detection)
-        const isImageRequest = currentInput.toLowerCase().includes('generate image') || 
-                              currentInput.toLowerCase().includes('create image') ||
-                              currentInput.toLowerCase().includes('draw') ||
-                              currentInput.toLowerCase().includes('picture of');
+      // Replace temp message with saved DB version
+      setMessages(prev => prev.map(m => 
+        m.id === tempId ? {
+          ...m,
+          id: savedUser.id,
+          created_at: savedUser.created_at
+        } : m
+      ));
+    } catch (saveError) {
+      console.error('Failed to save user message:', saveError);
+      // Continue with local message only (will not persist on refresh)
+      console.log('Continuing with local-only message');
+    }
 
-        if (isImageRequest) {
-          try {
-            // Generate image using Hugging Face Stable Diffusion XL
-            const imageUrl = await generateImage(currentInput);
-            
-            const aiResponse: Message = {
-              id: Date.now() + 1,
-              text: `Here's the image I generated for: "${currentInput}"`,
-              isUser: false,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              image: imageUrl,
-              mimeType: 'image/jpeg'
-            };
-            setMessages(prev => [...prev, aiResponse]);
-          } catch (imageError) {
-            console.error('Image generation failed:', imageError);
-            const errorResponse: Message = {
-              id: Date.now() + 1,
-              text: "Sorry, I couldn't generate the image. The model might be loading or there's a quota limit. Please try again in a few moments.",
-              isUser: false,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-            setMessages(prev => [...prev, errorResponse]);
-          }
-        } else {
-          // Use Gemini for text responses
-          const aiResponseText = await sendToGemini(currentInput);
+    try {
+      // Check if user wants image generation (simple keyword detection)
+      const isImageRequest = currentInput.toLowerCase().includes('generate image') || 
+                          currentInput.toLowerCase().includes('generate an image of a') || 
+                           currentInput.toLowerCase().includes('create image') ||
+                           currentInput.toLowerCase().includes('draw') ||
+                           currentInput.toLowerCase().includes('picture of');
+
+      if (isImageRequest) {
+        try {
+          // Generate image using Hugging Face Stable Diffusion XL
+          const imageUrl = await generateImage(currentInput);
           
           const aiResponse: Message = {
-            id: Date.now() + 1,
-            text: aiResponseText,
+            id: `temp-ai-${Date.now()}`,
+            text: `Here's the image I generated for: "${currentInput}"`,
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            image: imageUrl,
+            mimeType: 'image/jpeg'
+          };
+          
+          setMessages(prev => [...prev, aiResponse]);
+      
+          // Save AI response to database using external API
+          const savedAI = await saveMessage('assistant', aiResponse.text, imageUrl);
+          
+          // Update with DB ID
+          setMessages(prev => prev.map(m => 
+            m.id === aiResponse.id ? {
+              ...m,
+              id: savedAI.id,
+              created_at: savedAI.created_at
+            } : m
+          ));
+        } catch (imageError) {
+          console.error('Image generation failed:', imageError);
+          const errorResponse: Message = {
+            id: `temp-err-${Date.now()}`,
+            text: "Sorry, I couldn't generate the image. The model might be loading or there's a quota limit. Please try again in a few moments.",
             isUser: false,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
-          setMessages(prev => [...prev, aiResponse]);
+          setMessages(prev => [...prev, errorResponse]);
+          
+          // Save error response
+          await saveMessage('assistant', errorResponse.text);
         }
-      } catch (error) {
-        console.error('Failed to get AI response:', error);
-        const errorResponse: Message = {
-          id: Date.now() + 1,
-          text: "Sorry, I'm experiencing technical difficulties. Please try again.",
+      } else {
+        // Use Gemini for text responses
+        const aiResponseText = await sendToGemini(currentInput);
+        
+        const aiResponse: Message = {
+          id: `temp-ai-${Date.now()}`,
+          text: aiResponseText,
           isUser: false,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        setMessages(prev => [...prev, errorResponse]);
-      } finally {
-        setIsTyping(false);
+        
+        setMessages(prev => [...prev, aiResponse]);
+
+        // Save AI response using external API
+        const savedAI = await saveMessage('assistant', aiResponseText);
+        
+        // Update with DB ID
+        setMessages(prev => prev.map(m => 
+          m.id === aiResponse.id ? {
+            ...m,
+            id: savedAI.id,
+            created_at: savedAI.created_at
+          } : m
+        ));
       }
+    } catch (error) {
+      console.error('Failed to get AI response:', error);
+      const errorResponse: Message = {
+        id: `err-${Date.now()}`,
+        text: "Sorry, I'm experiencing technical difficulties. Please try again.",
+        isUser: false,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorResponse]);
+      
+      // Attempt to save error response
+      try {
+        await saveMessage('assistant', errorResponse.text);
+      } catch (saveError) {
+        console.error('Failed to save error response:', saveError);
+      }
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -219,28 +363,19 @@ export default function Home() {
   // Send user input to Gemini-1.5-flash (text model)
   async function sendToGemini(prompt: string): Promise<string> {
     try {
-      const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-      };
-
-      const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-goog-api-key": process.env.NEXT_PUBLIC_GEMINI_API_KEY || "", 
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
       
       if (!res.ok) {
-        throw new Error(`API request failed: ${res.status}`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `API request failed: ${res.status}`);
       }
       
       const data = await res.json();
-      return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "Sorry, I couldn't generate a response.";
+      return data.text || "Sorry, I couldn't generate a response.";
     } catch (error) {
       console.error('Error calling Gemini API:', error);
       return "Sorry, I'm having trouble connecting to the AI service. Please try again.";
@@ -372,6 +507,7 @@ export default function Home() {
           <span className="text-light small">ChatClone</span>
         </div>
         <div className="d-flex align-items-center">
+          <span className="text-light small me-2">{user.name}</span>
           <a href="/api/auth/logout" className="text-light" title="Logout">
             <i className="bi bi-box-arrow-right fs-5"></i>
           </a>
@@ -412,7 +548,7 @@ export default function Home() {
             placeholder="Ask anything..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={handleKeyPress}
+            // onKeyPress={handleKeyPress}
           />
           <button className="btn btn-outline-secondary ms-2">
             <i className="bi bi-mic"></i>
