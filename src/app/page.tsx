@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { fetchMessages, saveMessage } from '@/lib/messagesAPI';
-import { supabaseServer } from '@/lib/supabaseClient'; // Import supabaseServer client
+import { supabase } from '@/lib/supabaseClient'; // Correct import
 
 interface Message {
   id: string;
@@ -43,7 +43,7 @@ useEffect(() => {
       
       try {
         // Check if we already have a supabaseServer session
-        const { data: { session } } = await supabaseServer.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
           console.log("Syncing Auth0 with supabaseServer...");
@@ -55,7 +55,7 @@ useEffect(() => {
           
           if (syncResult.success) {
             // Set the supabaseServer session
-            await supabaseServer.auth.setSession({
+            await supabase.auth.setSession({
               access_token: syncResult.session.access_token,
               refresh_token: syncResult.session.refresh_token
             });

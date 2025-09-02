@@ -1,4 +1,4 @@
-import { supabaseServer } from './supabaseClient';
+import { supabase } from './supabaseClient'; // Correct import
 import { v4 as uuidv4 } from 'uuid';
 
 // Temporary local storage key for development
@@ -7,7 +7,7 @@ console.log('Using local storage key:', LOCAL_MESSAGES_KEY);
 export async function fetchMessages() {
   try {
     // First try to get authenticated session
-    const { data: { session } } = await supabaseServer.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
 
     console.log('Current session:', session);
     // Renamed file to messageAPI.ts
@@ -15,7 +15,7 @@ export async function fetchMessages() {
     if (session) {
       // If authenticated, fetch from supabaseServer
       const userId = session.user.id;
-      const { data, error } = await supabaseServer
+      const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('user_id', userId)
@@ -41,7 +41,7 @@ export async function fetchMessages() {
 export async function saveMessage(role: 'user' | 'assistant', text: string, image_url?: string) {
   try {
     // Try to get authenticated session
-    const { data: { session } } = await supabaseServer.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
 
     console.log('Attempting to save message:', { role, text, image_url });
     console.log('Current session:', session);
@@ -58,7 +58,7 @@ export async function saveMessage(role: 'user' | 'assistant', text: string, imag
       console.log('Authenticated session found, saving to supabaseServer...', session);
       // If authenticated, save to supabaseServer
       const userId = session.user.id;
-      const { data, error } = await supabaseServer
+      const { data, error } = await supabase
         .from('messages')
         .insert([{
           ...newMessage,
